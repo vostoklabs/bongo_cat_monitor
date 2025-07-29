@@ -178,14 +178,10 @@ Customize your Bongo Cat experience:
 - **Animation Speed**: Adjust responsiveness
 - **Connection Settings**: COM port configuration
 
-## 🛠️ 3D Printing (Coming Soon)
+## 🛠️ 3D Printing 
 
-We're working on custom case designs for your Bongo Cat:
+You can download and 3D print the standing case for this project. It contains .step, .stl and .3mf files 
 
-- **Material**: PLA recommended
-- **Supports**: Minimal supports needed
-- **Print Time**: Approximately 2-3 hours
-- **File Format**: .3mf files for easy printing
 
 ## 📡 Communication Protocol
 
