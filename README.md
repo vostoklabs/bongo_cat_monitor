@@ -183,16 +183,6 @@ Customize your Bongo Cat experience:
 You can download and 3D print the standing case for this project. It contains .step, .stl and .3mf files 
 
 
-## 📡 Communication Protocol
-
-The ESP32 and PC application communicate via USB serial at 115200 baud:
-
-### Commands
-- `CPU:XX` - CPU usage percentage
-- `RAM:XX` - RAM usage percentage  
-- `WPM:XX` - Words per minute
-- `TIME:HH:MM` - Current time
-- `ANIM:X` - Animation state change
 
 ## 🤝 Contributing
 
@@ -218,16 +208,12 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ## 🙏 Acknowledgments
 
 - Original Bongo Cat meme creators
-- ESP32 and Arduino communities
-- LVGL graphics library developers
-- All contributors and supporters
 
 ## 📞 Support
 
-- **Issues**: Report bugs on GitHub Issues
-- **Discussions**: Join our community discussions
+
 - **Web Flasher**: [https://vostoklabs.github.io/Bongo_cat_webflasher/](https://vostoklabs.github.io/Bongo_cat_webflasher/)
 
 ---
 
-**Made with ❤️ for the love of cute cats and coding** 
+
