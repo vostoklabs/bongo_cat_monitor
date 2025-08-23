@@ -11,15 +11,17 @@ import threading
 import sys
 import os
 from typing import Optional, Callable
+from version import VERSION, VERSION_INFO
 
 class BongoCatSystemTray:
     """System tray integration for Bongo Cat application"""
     
-    def __init__(self, config_manager=None, engine=None, on_exit_callback: Optional[Callable] = None):
+    def __init__(self, config_manager=None, engine=None, on_exit_callback: Optional[Callable] = None, app_instance=None):
         """Initialize system tray"""
         self.config = config_manager
         self.engine = engine
         self.on_exit_callback = on_exit_callback
+        self.app_instance = app_instance
         
         self.icon = None
         self.settings_gui = None
@@ -229,7 +231,7 @@ class BongoCatSystemTray:
         """Show about dialog"""
         self.show_notification(
             "About Bongo Cat",
-            "Bongo Cat Typing Monitor v2.0\n\nMonitors your typing and shows cute cat animations!\n\nRight-click for more options."
+            f"{VERSION_INFO['app_name']} v{VERSION}\n\n{VERSION_INFO['description']}\n\nRight-click for more options."
         )
     
     def show_settings(self, item=None):
@@ -256,7 +258,8 @@ class BongoCatSystemTray:
                             config_manager=self.config,
                             engine=self.engine,
                             on_close_callback=self.on_settings_closed,
-                            parent_root=settings_root
+                            parent_root=settings_root,
+                            app_instance=self.app_instance
                         )
                     
                     print("📱 Showing settings window...")
