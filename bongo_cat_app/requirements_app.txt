@@ -68,3 +68,5 @@ uvicorn==0.35.0
 Werkzeug==3.1.3
 yarl==1.20.1
 zstandard==0.23.0
+pystray==0.19.5
+HardwareMonitor==1.0.0

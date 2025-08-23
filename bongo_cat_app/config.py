@@ -9,6 +9,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Dict, Any, Callable, List
+from version import CONFIG_VERSION
 
 class ConfigManager:
     """Manages application configuration with JSON persistence and validation"""
@@ -27,11 +28,13 @@ class ConfigManager:
         
         # Default configuration
         self.default_config = {
-            "version": "1.0",
+            "version": CONFIG_VERSION,
             "display": {
                 "show_cpu": True,
                 "show_ram": True,
                 "show_wpm": True,
+                "show_cpu_temp": False,
+                "show_gpu_temp": True,
                 "show_time": True,
                 "time_format_24h": True
             },
@@ -108,6 +111,14 @@ class ConfigManager:
             if not (1 <= connection.get("timeout_seconds", 0) <= 30):
                 print("❌ Invalid timeout_seconds (1-30)")
                 return False
+            
+            # Validate startup settings
+            startup = config["startup"]
+            required_startup_keys = ["start_with_windows", "start_minimized", "show_notifications"]
+            for key in required_startup_keys:
+                if key not in startup or not isinstance(startup[key], bool):
+                    print(f"❌ Invalid startup setting: {key}")
+                    return False
             
             return True
             
