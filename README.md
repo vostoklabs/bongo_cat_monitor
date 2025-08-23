@@ -172,7 +172,6 @@ The `lv_conf.h` file configures the LVGL graphics library:
 2. **ESP32 Firmware**
    - Open `bongo_cat.ino` in Arduino IDE
    - Ensure libraries are installed
-   - Set Partition Scheme to `Huge APP (3MB No OTA/1MB SPIFFS)` under `Tools`
    - Upload to your ESP32
 
 3. **Desktop Application**
