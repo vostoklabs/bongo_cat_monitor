@@ -86,6 +86,26 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
     lv_disp_flush_ready(disp);
 }
 
+void setTempLabel(lv_obj_t* label, const char* prefix, int temp) {
+    if (temp > 0) {
+        const char* colorStr = "#000000";
+        if (temp < 60) {
+            colorStr = "#000000";
+        } else if (temp < 75) {
+            colorStr = "#ffdc00";
+        } else {
+            colorStr = "#ff0000";
+        }
+        char tempBuf[32];
+        snprintf(tempBuf, sizeof(tempBuf), "%s %s %dC#", prefix, colorStr, temp);
+        lv_label_set_text(label, tempBuf);
+    } else {
+        char tempBuf[32];
+        snprintf(tempBuf, sizeof(tempBuf), "%s --C", prefix);
+        lv_label_set_text(label, tempBuf);
+    }
+}
+
 // Update system stats display
 void updateSystemStats(int cpu, int ram, int wpm, int cpuTemp, int gpuTemp) {
     cpu_usage = cpu;
@@ -93,26 +113,18 @@ void updateSystemStats(int cpu, int ram, int wpm, int cpuTemp, int gpuTemp) {
     wpm_speed = wpm;
     cpu_temp = cpuTemp;
     gpu_temp = gpuTemp;
-    
+
     if (cpu_label) {
         lv_label_set_text_fmt(cpu_label, "CPU: %d%%", cpu);
     }
-    if (cpu_temp_label) {
-        if (cpuTemp > 0) {
-            lv_label_set_text_fmt(cpu_temp_label, "CPU Temp: %d%C", cpuTemp);
-        } else {
-            lv_label_set_text(cpu_temp_label, "CPU Temp: --C");
-        }
-    }
-    if (gpu_temp_label) {
-        if (gpuTemp > 0) {
-            lv_label_set_text_fmt(gpu_temp_label, "GPU Temp: %d%C", gpuTemp);
-        } else {
-            lv_label_set_text(gpu_temp_label, "GPU Temp: --C");
-        }
-    }
     if (ram_label) {
         lv_label_set_text_fmt(ram_label, "RAM: %d%%", ram);
+    }
+    if (cpu_temp_label) {
+        setTempLabel(cpu_temp_label, "CPU Temp:", cpuTemp);
+    }
+    if (gpu_temp_label) {
+        setTempLabel(gpu_temp_label, "GPU Temp:", gpuTemp);
     }
     if (wpm_label) {
         lv_label_set_text_fmt(wpm_label, "WPM: %d", wpm);
@@ -961,11 +973,14 @@ void createBongoCat() {
     lv_label_set_text(cpu_temp_label, "CPU Temp: --C");
     lv_obj_set_style_text_font(cpu_temp_label, &lv_font_unscii_16, 0);
     lv_obj_set_style_text_color(cpu_temp_label, lv_color_black(), 0);
+    lv_label_set_recolor(cpu_temp_label, true);
 
     gpu_temp_label = lv_label_create(screen);
     lv_label_set_text(gpu_temp_label, "GPU Temp: --C");
     lv_obj_set_style_text_font(gpu_temp_label, &lv_font_unscii_16, 0);
     lv_obj_set_style_text_color(gpu_temp_label, lv_color_black(), 0);
+    lv_label_set_recolor(gpu_temp_label, true);
+
     
     wpm_label = lv_label_create(screen);
     lv_label_set_text(wpm_label, "WPM: 0");
