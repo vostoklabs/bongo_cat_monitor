@@ -59,5 +59,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    uac_admin=True,
     icon='bongo_cat_app/assets/tray_icon.png',
 )

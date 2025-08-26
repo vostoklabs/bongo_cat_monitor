@@ -62,18 +62,81 @@ Section "Bongo Cat Application" SecMain
 SectionEnd
 
 Section "Start with Windows" SecStartup
-    ; Add to Windows startup registry
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}" "$INSTDIR\${APP_EXE} --startup"
+    ; Create a scheduled task for admin startup
+    ; This ensures the app can run with admin privileges at startup
+    
+    ; Create XML task definition file
+    FileOpen $0 "$TEMP\BongoCatTask.xml" w
+    FileWrite $0 '<?xml version="1.0" encoding="UTF-16"?>$\r$\n'
+    FileWrite $0 '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">$\r$\n'
+    FileWrite $0 '  <RegistrationInfo>$\r$\n'
+    FileWrite $0 '    <Description>Bongo Cat Typing Monitor - Auto Start</Description>$\r$\n'
+    FileWrite $0 '    <Author>Bongo Cat Project</Author>$\r$\n'
+    FileWrite $0 '  </RegistrationInfo>$\r$\n'
+    FileWrite $0 '  <Triggers>$\r$\n'
+    FileWrite $0 '    <LogonTrigger>$\r$\n'
+    FileWrite $0 '      <Enabled>true</Enabled>$\r$\n'
+    FileWrite $0 '      <Delay>PT10S</Delay>$\r$\n'
+    FileWrite $0 '    </LogonTrigger>$\r$\n'
+    FileWrite $0 '  </Triggers>$\r$\n'
+    FileWrite $0 '  <Principals>$\r$\n'
+    FileWrite $0 '    <Principal id="Author">$\r$\n'
+    FileWrite $0 '      <RunLevel>HighestAvailable</RunLevel>$\r$\n'
+    FileWrite $0 '      <LogonType>InteractiveToken</LogonType>$\r$\n'
+    FileWrite $0 '    </Principal>$\r$\n'
+    FileWrite $0 '  </Principals>$\r$\n'
+    FileWrite $0 '  <Settings>$\r$\n'
+    FileWrite $0 '    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>$\r$\n'
+    FileWrite $0 '    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>$\r$\n'
+    FileWrite $0 '    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>$\r$\n'
+    FileWrite $0 '    <AllowHardTerminate>true</AllowHardTerminate>$\r$\n'
+    FileWrite $0 '    <StartWhenAvailable>true</StartWhenAvailable>$\r$\n'
+    FileWrite $0 '    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>$\r$\n'
+    FileWrite $0 '    <IdleSettings>$\r$\n'
+    FileWrite $0 '      <StopOnIdleEnd>false</StopOnIdleEnd>$\r$\n'
+    FileWrite $0 '      <RestartOnIdle>false</RestartOnIdle>$\r$\n'
+    FileWrite $0 '    </IdleSettings>$\r$\n'
+    FileWrite $0 '    <AllowStartOnDemand>true</AllowStartOnDemand>$\r$\n'
+    FileWrite $0 '    <Enabled>true</Enabled>$\r$\n'
+    FileWrite $0 '    <Hidden>false</Hidden>$\r$\n'
+    FileWrite $0 '    <RunOnlyIfIdle>false</RunOnlyIfIdle>$\r$\n'
+    FileWrite $0 '    <WakeToRun>false</WakeToRun>$\r$\n'
+    FileWrite $0 '    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>$\r$\n'
+    FileWrite $0 '    <Priority>7</Priority>$\r$\n'
+    FileWrite $0 '  </Settings>$\r$\n'
+    FileWrite $0 '  <Actions Context="Author">$\r$\n'
+    FileWrite $0 '    <Exec>$\r$\n'
+    FileWrite $0 '      <Command>$INSTDIR\${APP_EXE}</Command>$\r$\n'
+    FileWrite $0 '      <Arguments></Arguments>$\r$\n'
+    FileWrite $0 '      <WorkingDirectory>$INSTDIR</WorkingDirectory>$\r$\n'
+    FileWrite $0 '    </Exec>$\r$\n'
+    FileWrite $0 '  </Actions>$\r$\n'
+    FileWrite $0 '</Task>$\r$\n'
+    FileClose $0
+    
+    ; Create the scheduled task using schtasks command
+    ExecWait 'schtasks /create /tn "BongoCat Auto Start" /xml "$TEMP\BongoCatTask.xml" /f' $1
+    
+    ; Clean up temporary file
+    Delete "$TEMP\BongoCatTask.xml"
+    
+    ; Check if task creation was successful
+    ${If} $1 == 0
+        DetailPrint "Scheduled task created successfully"
+    ${Else}
+        DetailPrint "Warning: Could not create scheduled task (Error: $1)"
+    ${EndIf}
+    
 SectionEnd
 
 Section "Desktop Shortcut" SecDesktop
     ; Create desktop shortcut
-    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "--minimized"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" ""
 SectionEnd
 
 Section "Start Now" SecStartNow
     ; Launch the application after installation
-    Exec "$INSTDIR\${APP_EXE} --minimized"
+    Exec "$INSTDIR\${APP_EXE}"
 SectionEnd
 
 ; Section Descriptions
@@ -94,7 +157,10 @@ Section "Uninstall"
     ; Stop the application if running
     ExecWait "taskkill /F /IM ${APP_EXE}" $0
     
-    ; Remove startup registry entry
+    ; Remove scheduled task
+    ExecWait 'schtasks /delete /tn "BongoCat Auto Start" /f' $1
+    
+    ; Remove startup registry entry (legacy cleanup)
     DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
     
     ; Remove desktop shortcut

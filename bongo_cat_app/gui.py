@@ -6,16 +6,9 @@ Tkinter-based configuration interface for all application settings
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import threading
-import ctypes
-import os
-import sys
-import subprocess
-import time
 from typing import Optional, Callable
-
-# Import restart function from main
-from main import restart_as_admin, is_admin
+from constants import BONGO_CAT_AUTOSTART_TASK_NAME
+from task import Task
 
 class BongoCatSettingsGUI:
     """Settings GUI for Bongo Cat application"""
@@ -155,7 +148,7 @@ class BongoCatSettingsGUI:
                        variable=self.widgets['show_ram'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
         self.widgets['show_cpu_temp'] = tk.BooleanVar(self.window)
-        ttk.Checkbutton(display_group, text="Show CPU Temperature (requires admin rights)", 
+        ttk.Checkbutton(display_group, text="Show CPU Temperature", 
                        variable=self.widgets['show_cpu_temp'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
         self.widgets['show_gpu_temp'] = tk.BooleanVar(self.window)
@@ -301,10 +294,6 @@ class BongoCatSettingsGUI:
         ttk.Checkbutton(startup_group, text="Start with Windows", 
                        variable=self.widgets['start_with_windows'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
-        self.widgets['start_minimized'] = tk.BooleanVar(self.window, value=True)
-        ttk.Checkbutton(startup_group, text="Start minimized to system tray", 
-                       variable=self.widgets['start_minimized'], command=self.on_setting_changed).pack(anchor='w', pady=2)
-        
         self.widgets['show_notifications'] = tk.BooleanVar(self.window, value=True)
         ttk.Checkbutton(startup_group, text="Show notifications", 
                        variable=self.widgets['show_notifications'], command=self.on_setting_changed).pack(anchor='w', pady=2)
@@ -363,7 +352,7 @@ class BongoCatSettingsGUI:
             display = self.config.get_display_settings()
             self.widgets['show_cpu'].set(display.get('show_cpu', True))
             self.widgets['show_ram'].set(display.get('show_ram', True))
-            self.widgets['show_cpu_temp'].set(display.get('show_cpu_temp', False))
+            self.widgets['show_cpu_temp'].set(display.get('show_cpu_temp', True))
             self.widgets['show_gpu_temp'].set(display.get('show_gpu_temp', True))
             self.widgets['show_wpm'].set(display.get('show_wpm', True))
             self.widgets['show_time'].set(display.get('show_time', True))
@@ -385,7 +374,6 @@ class BongoCatSettingsGUI:
             # Load startup settings
             startup = self.config.get_startup_settings()
             self.widgets['start_with_windows'].set(startup.get('start_with_windows', True))
-            self.widgets['start_minimized'].set(startup.get('start_minimized', True))
             self.widgets['show_notifications'].set(startup.get('show_notifications', True))
             
             # Update labels
@@ -480,11 +468,11 @@ class BongoCatSettingsGUI:
             self.config.set_setting('display', 'show_wpm', self.widgets['show_wpm'].get())
             self.config.set_setting('display', 'show_time', self.widgets['show_time'].get())
             self.config.set_setting('display', 'time_format_24h', self.widgets['time_format'].get() == '24')
-            
+
             # Apply behavior settings
             self.config.set_setting('behavior', 'sleep_timeout_minutes', self.widgets['sleep_timeout'].get())
             self.config.set_setting('behavior', 'idle_timeout_seconds', self.widgets['idle_timeout'].get())
-            
+
             # Apply connection settings
             self.config.set_setting('connection', 'com_port', self.widgets['com_port'].get())
             self.config.set_setting('connection', 'baudrate', self.widgets['baudrate'].get())
@@ -492,12 +480,26 @@ class BongoCatSettingsGUI:
             self.config.set_setting('connection', 'timeout_seconds', self.widgets['conn_timeout'].get())
             
             # Apply startup settings
-            self.config.set_setting('startup', 'start_with_windows', self.widgets['start_with_windows'].get())
-            self.config.set_setting('startup', 'start_minimized', self.widgets['start_minimized'].get())
+            old_start_with_windows = self.original_config.get('startup', {}).get('start_with_windows', True)
+            new_start_with_windows = self.widgets['start_with_windows'].get()
+
+            self.config.set_setting('startup', 'start_with_windows', new_start_with_windows)
             self.config.set_setting('startup', 'show_notifications', self.widgets['show_notifications'].get())
-
- 
-
+            
+            # Apply Windows startup setting if it changed
+            if old_start_with_windows != new_start_with_windows:
+                try:
+                    task = Task(BONGO_CAT_AUTOSTART_TASK_NAME)
+                    if task.set_enabled(new_start_with_windows):
+                        print(f"✅ Windows startup task {'enabled' if new_start_with_windows else 'disabled'} successfully")
+                    else:
+                        messagebox.showerror("Error", "Failed to update Windows startup task")
+                        print("❌ Failed to update Windows startup task")
+                except ValueError as e:
+                    messagebox.showwarning("Startup Task Missing", 
+                                         f"The Windows startup task '{BONGO_CAT_AUTOSTART_TASK_NAME}' was not found.\n\n"
+                                         "Please run the installer again to create the startup task.")
+                    print("⚠️ Windows startup task not found")
             
             # Apply settings to Arduino immediately if engine is available
             if self.engine and hasattr(self.engine, 'apply_all_config_to_arduino'):
@@ -545,10 +547,7 @@ class BongoCatSettingsGUI:
             # Close window if requested
             if close_window:
                 self.close_window()
-            
-            # Check if restart is needed after applying settings
-            self.check_and_handle_restart()
-            
+                       
 
             self.original_config = {
                 'display': self.config.get_display_settings().copy(),
@@ -559,39 +558,7 @@ class BongoCatSettingsGUI:
         except Exception as e:
             error_msg = f"Failed to {'save' if close_window else 'apply'} settings: {e}"
             messagebox.showerror("Error", error_msg)
-    
-    def check_and_handle_restart(self):
-        """Check if any restart is needed and handle it"""
-        if not self.config or not self.original_config:
-            return False
-        
-        # Check if CPU temperature monitoring setting was changed
-        display_settings = self.config.get_display_settings()
-        cpu_temp_enabled = display_settings.get('show_cpu_temp', False)
-        original_cpu_temp = self.original_config['display'].get('show_cpu_temp', False)
-        
-        # Only show messages if the CPU temp setting actually changed
-        cpu_temp_changed = cpu_temp_enabled != original_cpu_temp
-        
-        # If CPU temp is enabled and we're not admin - restart as admin
-        if cpu_temp_enabled and not is_admin():
-            # Show restart notification
-            messagebox.showinfo("Restart Required", 
-                              "Application will now restart with administrator privileges to enable CPU temperature monitoring.")
-            
-            restart_as_admin(self.app_instance)
-            return True  # Restart happened
-        
-        # If CPU temp was just disabled and we're running as admin
-        elif not cpu_temp_enabled and cpu_temp_changed and is_admin():
-            messagebox.showinfo("Admin Rights", 
-                              "CPU temperature monitoring has been disabled.\n\n"
-                              "The application will continue running with administrator privileges. "
-                              "To run without admin rights, please close the application and restart it normally "
-                              "(without right-clicking 'Run as administrator').")
-            return False  # No restart happened
-        
-        return False  # No restart needed
+
     
     def cancel_settings(self):
         """Cancel changes and revert to original settings"""

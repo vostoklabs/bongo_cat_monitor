@@ -10,11 +10,9 @@ import serial.tools.list_ports
 import threading
 from collections import deque
 from pynput import keyboard
-import sys
-import platform
 import psutil
 import datetime
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, Dict, Any
 from HardwareMonitor.Hardware import *
 from HardwareMonitor.Hardware import HardwareType, SensorType
 from HardwareMonitor.Util import OpenComputer

@@ -11,7 +11,9 @@ import threading
 import sys
 import os
 from typing import Optional, Callable
+from task import Task
 from version import VERSION, VERSION_INFO
+from constants import BONGO_CAT_AUTOSTART_TASK_NAME
 
 class BongoCatSystemTray:
     """System tray integration for Bongo Cat application"""
@@ -318,12 +320,22 @@ class BongoCatSystemTray:
     def toggle_startup(self, item=None):
         """Toggle startup with Windows setting"""
         if self.config:
-            current = self.get_startup_setting()
-            self.config.set_setting('startup', 'start_with_windows', not current)
-            self.config.save_config()
-            
-            status = "enabled" if not current else "disabled"
-            self.show_notification("Startup Setting", f"Start with Windows {status}")
+            old_setting = self.get_startup_setting()
+            new_setting = not old_setting
+
+            task = Task(BONGO_CAT_AUTOSTART_TASK_NAME)
+
+            if not task.exists():
+                self.show_notification("Startup Task Missing", 
+                                        f"The Windows startup task '{BONGO_CAT_AUTOSTART_TASK_NAME}' was not found.\n\n"
+                                        "Please run the installer again to create the startup task.")
+                print("⚠️ Windows startup task not found")
+            else:
+                if task.set_enabled(new_setting):
+                    print(f"✅ Windows startup task {'enabled' if new_setting else 'disabled'} successfully")
+                else:
+                    self.show_notification("Error", "Failed to update Windows startup task")
+                    print("❌ Failed to update Windows startup task")
     
     def toggle_notifications(self, item=None):
         """Toggle notifications setting"""

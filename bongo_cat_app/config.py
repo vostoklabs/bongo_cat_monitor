@@ -33,7 +33,7 @@ class ConfigManager:
                 "show_cpu": True,
                 "show_ram": True,
                 "show_wpm": True,
-                "show_cpu_temp": False,
+                "show_cpu_temp": True,
                 "show_gpu_temp": True,
                 "show_time": True,
                 "time_format_24h": True
@@ -50,7 +50,6 @@ class ConfigManager:
             },
             "startup": {
                 "start_with_windows": True,
-                "start_minimized": True,
                 "show_notifications": True
             }
         }
@@ -111,14 +110,6 @@ class ConfigManager:
             if not (1 <= connection.get("timeout_seconds", 0) <= 30):
                 print("❌ Invalid timeout_seconds (1-30)")
                 return False
-            
-            # Validate startup settings
-            startup = config["startup"]
-            required_startup_keys = ["start_with_windows", "start_minimized", "show_notifications"]
-            for key in required_startup_keys:
-                if key not in startup or not isinstance(startup[key], bool):
-                    print(f"❌ Invalid startup setting: {key}")
-                    return False
             
             return True
             
