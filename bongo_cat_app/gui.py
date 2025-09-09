@@ -6,18 +6,20 @@ Tkinter-based configuration interface for all application settings
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import threading
 from typing import Optional, Callable
+from constants import BONGO_CAT_AUTOSTART_TASK_NAME
+from task import Task
 
 class BongoCatSettingsGUI:
     """Settings GUI for Bongo Cat application"""
     
-    def __init__(self, config_manager=None, engine=None, on_close_callback: Optional[Callable] = None, parent_root=None):
+    def __init__(self, config_manager=None, engine=None, on_close_callback: Optional[Callable] = None, parent_root=None, app_instance=None):
         """Initialize the settings GUI"""
         self.config = config_manager
         self.engine = engine
         self.on_close_callback = on_close_callback
         self.parent_root = parent_root  # Optional parent tkinter root
+        self.app_instance = app_instance  # Application instance for restart functionality
         self.window = None
         self.widgets = {}
         
@@ -52,7 +54,7 @@ class BongoCatSettingsGUI:
         # Create main window as Toplevel with proper parent
         self.window = tk.Toplevel(root)
         self.window.title("Bongo Cat Settings")
-        self.window.geometry("500x600")
+        self.window.geometry("550x600")
         self.window.resizable(True, True)
         
         # Set window icon (if available)
@@ -86,6 +88,9 @@ class BongoCatSettingsGUI:
     def create_gui_content(self):
         """Create all GUI content (tabs, buttons, etc.)"""
         try:
+            # Clear old widgets dictionary to prevent stale references
+            self.widgets.clear()
+            
             # Create notebook for tabs
             notebook = ttk.Notebook(self.window)
             notebook.pack(fill='both', expand=True, padx=10, pady=10)
@@ -134,19 +139,28 @@ class BongoCatSettingsGUI:
         display_group.pack(fill='x', pady=(0, 15))
         
         # Checkboxes for display elements
-        self.widgets['show_cpu'] = tk.BooleanVar()
+        self.widgets['show_cpu'] = tk.BooleanVar(self.window)
         ttk.Checkbutton(display_group, text="Show CPU Usage", 
                        variable=self.widgets['show_cpu'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
-        self.widgets['show_ram'] = tk.BooleanVar()
+        self.widgets['show_ram'] = tk.BooleanVar(self.window)
         ttk.Checkbutton(display_group, text="Show RAM Usage", 
                        variable=self.widgets['show_ram'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
-        self.widgets['show_wpm'] = tk.BooleanVar()
+        self.widgets['show_cpu_temp'] = tk.BooleanVar(self.window)
+        ttk.Checkbutton(display_group, text="Show CPU Temperature", 
+                       variable=self.widgets['show_cpu_temp'], command=self.on_setting_changed).pack(anchor='w', pady=2)
+        
+        self.widgets['show_gpu_temp'] = tk.BooleanVar(self.window)
+        ttk.Checkbutton(display_group, text="Show GPU Temperature", 
+                       variable=self.widgets['show_gpu_temp'], command=self.on_setting_changed).pack(anchor='w', pady=2)
+        
+
+        self.widgets['show_wpm'] = tk.BooleanVar(self.window)
         ttk.Checkbutton(display_group, text="Show WPM Counter", 
                        variable=self.widgets['show_wpm'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
-        self.widgets['show_time'] = tk.BooleanVar()
+        self.widgets['show_time'] = tk.BooleanVar(self.window)
         ttk.Checkbutton(display_group, text="Show Clock", 
                        variable=self.widgets['show_time'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
@@ -154,7 +168,7 @@ class BongoCatSettingsGUI:
         time_group = ttk.LabelFrame(main_frame, text="Time Format", padding=15)
         time_group.pack(fill='x', pady=(0, 15))
         
-        self.widgets['time_format'] = tk.StringVar(value="24")
+        self.widgets['time_format'] = tk.StringVar(self.window, value="24")
         ttk.Radiobutton(time_group, text="24-hour format (14:30)", 
                        variable=self.widgets['time_format'], value="24", command=self.on_setting_changed).pack(anchor='w', pady=2)
         ttk.Radiobutton(time_group, text="12-hour format (2:30 PM)", 
@@ -185,7 +199,7 @@ class BongoCatSettingsGUI:
         timeout_frame = ttk.Frame(sleep_group)
         timeout_frame.pack(fill='x', pady=(0, 10))
         
-        self.widgets['sleep_timeout'] = tk.IntVar(value=1)
+        self.widgets['sleep_timeout'] = tk.IntVar(self.window, value=1)
         self.widgets['sleep_scale'] = ttk.Scale(timeout_frame, from_=1, to=60, orient='horizontal',
                                                variable=self.widgets['sleep_timeout'], command=self.on_sleep_timeout_changed)
         self.widgets['sleep_scale'].pack(side='left', fill='x', expand=True, padx=(0, 10))
@@ -202,7 +216,7 @@ class BongoCatSettingsGUI:
         idle_frame = ttk.Frame(anim_group)
         idle_frame.pack(fill='x')
         
-        self.widgets['idle_timeout'] = tk.DoubleVar(value=3.0)
+        self.widgets['idle_timeout'] = tk.DoubleVar(self.window, value=3.0)
         self.widgets['idle_scale'] = ttk.Scale(idle_frame, from_=0.5, to=10.0, orient='horizontal',
                                               variable=self.widgets['idle_timeout'], command=self.on_idle_timeout_changed)
         self.widgets['idle_scale'].pack(side='left', fill='x', expand=True, padx=(0, 10))
@@ -227,7 +241,7 @@ class BongoCatSettingsGUI:
         port_frame = ttk.Frame(port_group)
         port_frame.pack(fill='x', pady=(0, 10))
         
-        self.widgets['com_port'] = tk.StringVar(value="AUTO")
+        self.widgets['com_port'] = tk.StringVar(self.window, value="AUTO")
         port_combo = ttk.Combobox(port_frame, textvariable=self.widgets['com_port'], width=15)
         port_combo['values'] = ('AUTO', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8')
         port_combo.pack(side='left', padx=(0, 10))
@@ -237,7 +251,7 @@ class BongoCatSettingsGUI:
         
         ttk.Label(port_group, text="Baudrate:").pack(anchor='w', pady=(10, 5))
         
-        self.widgets['baudrate'] = tk.IntVar(value=115200)
+        self.widgets['baudrate'] = tk.IntVar(self.window, value=115200)
         baud_combo = ttk.Combobox(port_group, textvariable=self.widgets['baudrate'], width=15)
         baud_combo['values'] = (9600, 19200, 38400, 57600, 115200)
         baud_combo.pack(anchor='w')
@@ -247,7 +261,7 @@ class BongoCatSettingsGUI:
         conn_group = ttk.LabelFrame(main_frame, text="Connection Options", padding=15)
         conn_group.pack(fill='x', pady=(0, 15))
         
-        self.widgets['auto_reconnect'] = tk.BooleanVar(value=True)
+        self.widgets['auto_reconnect'] = tk.BooleanVar(self.window, value=True)
         ttk.Checkbutton(conn_group, text="Auto-reconnect if connection lost", 
                        variable=self.widgets['auto_reconnect'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
@@ -256,7 +270,7 @@ class BongoCatSettingsGUI:
         timeout_frame = ttk.Frame(conn_group)
         timeout_frame.pack(fill='x')
         
-        self.widgets['conn_timeout'] = tk.IntVar(value=5)
+        self.widgets['conn_timeout'] = tk.IntVar(self.window, value=5)
         timeout_combo = ttk.Combobox(timeout_frame, textvariable=self.widgets['conn_timeout'], width=10)
         timeout_combo['values'] = (1, 2, 3, 5, 10, 15, 30)
         timeout_combo.pack(side='left', padx=(0, 5))
@@ -276,15 +290,11 @@ class BongoCatSettingsGUI:
         startup_group = ttk.LabelFrame(main_frame, text="Startup Behavior", padding=15)
         startup_group.pack(fill='x', pady=(0, 15))
         
-        self.widgets['start_with_windows'] = tk.BooleanVar(value=True)
+        self.widgets['start_with_windows'] = tk.BooleanVar(self.window, value=True)
         ttk.Checkbutton(startup_group, text="Start with Windows", 
                        variable=self.widgets['start_with_windows'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
-        self.widgets['start_minimized'] = tk.BooleanVar(value=True)
-        ttk.Checkbutton(startup_group, text="Start minimized to system tray", 
-                       variable=self.widgets['start_minimized'], command=self.on_setting_changed).pack(anchor='w', pady=2)
-        
-        self.widgets['show_notifications'] = tk.BooleanVar(value=True)
+        self.widgets['show_notifications'] = tk.BooleanVar(self.window, value=True)
         ttk.Checkbutton(startup_group, text="Show notifications", 
                        variable=self.widgets['show_notifications'], command=self.on_setting_changed).pack(anchor='w', pady=2)
         
@@ -342,6 +352,8 @@ class BongoCatSettingsGUI:
             display = self.config.get_display_settings()
             self.widgets['show_cpu'].set(display.get('show_cpu', True))
             self.widgets['show_ram'].set(display.get('show_ram', True))
+            self.widgets['show_cpu_temp'].set(display.get('show_cpu_temp', True))
+            self.widgets['show_gpu_temp'].set(display.get('show_gpu_temp', True))
             self.widgets['show_wpm'].set(display.get('show_wpm', True))
             self.widgets['show_time'].set(display.get('show_time', True))
             self.widgets['time_format'].set('24' if display.get('time_format_24h', True) else '12')
@@ -362,7 +374,6 @@ class BongoCatSettingsGUI:
             # Load startup settings
             startup = self.config.get_startup_settings()
             self.widgets['start_with_windows'].set(startup.get('start_with_windows', True))
-            self.widgets['start_minimized'].set(startup.get('start_minimized', True))
             self.widgets['show_notifications'].set(startup.get('show_notifications', True))
             
             # Update labels
@@ -436,6 +447,14 @@ class BongoCatSettingsGUI:
     
     def apply_settings(self):
         """Apply current settings without saving to file"""
+        self._save_apply_settings(close_window=False)
+    
+    def save_settings(self):
+        """Save current settings to file and Arduino"""
+        self._save_apply_settings(close_window=True)
+    
+    def _save_apply_settings(self, close_window=False):
+        """Internal method to apply/save settings with optional window closing"""
         if not self.config:
             messagebox.showerror("Error", "No configuration manager available")
             return
@@ -444,15 +463,16 @@ class BongoCatSettingsGUI:
             # Apply display settings
             self.config.set_setting('display', 'show_cpu', self.widgets['show_cpu'].get())
             self.config.set_setting('display', 'show_ram', self.widgets['show_ram'].get())
+            self.config.set_setting('display', 'show_cpu_temp', self.widgets['show_cpu_temp'].get())
+            self.config.set_setting('display', 'show_gpu_temp', self.widgets['show_gpu_temp'].get())
             self.config.set_setting('display', 'show_wpm', self.widgets['show_wpm'].get())
             self.config.set_setting('display', 'show_time', self.widgets['show_time'].get())
             self.config.set_setting('display', 'time_format_24h', self.widgets['time_format'].get() == '24')
-            
+
             # Apply behavior settings
             self.config.set_setting('behavior', 'sleep_timeout_minutes', self.widgets['sleep_timeout'].get())
-    
             self.config.set_setting('behavior', 'idle_timeout_seconds', self.widgets['idle_timeout'].get())
-            
+
             # Apply connection settings
             self.config.set_setting('connection', 'com_port', self.widgets['com_port'].get())
             self.config.set_setting('connection', 'baudrate', self.widgets['baudrate'].get())
@@ -460,9 +480,26 @@ class BongoCatSettingsGUI:
             self.config.set_setting('connection', 'timeout_seconds', self.widgets['conn_timeout'].get())
             
             # Apply startup settings
-            self.config.set_setting('startup', 'start_with_windows', self.widgets['start_with_windows'].get())
-            self.config.set_setting('startup', 'start_minimized', self.widgets['start_minimized'].get())
+            old_start_with_windows = self.original_config.get('startup', {}).get('start_with_windows', True)
+            new_start_with_windows = self.widgets['start_with_windows'].get()
+
+            self.config.set_setting('startup', 'start_with_windows', new_start_with_windows)
             self.config.set_setting('startup', 'show_notifications', self.widgets['show_notifications'].get())
+            
+            # Apply Windows startup setting if it changed
+            if old_start_with_windows != new_start_with_windows:
+                try:
+                    task = Task(BONGO_CAT_AUTOSTART_TASK_NAME)
+                    if task.set_enabled(new_start_with_windows):
+                        print(f"✅ Windows startup task {'enabled' if new_start_with_windows else 'disabled'} successfully")
+                    else:
+                        messagebox.showerror("Error", "Failed to update Windows startup task")
+                        print("❌ Failed to update Windows startup task")
+                except ValueError as e:
+                    messagebox.showwarning("Startup Task Missing", 
+                                         f"The Windows startup task '{BONGO_CAT_AUTOSTART_TASK_NAME}' was not found.\n\n"
+                                         "Please run the installer again to create the startup task.")
+                    print("⚠️ Windows startup task not found")
             
             # Apply settings to Arduino immediately if engine is available
             if self.engine and hasattr(self.engine, 'apply_all_config_to_arduino'):
@@ -472,27 +509,56 @@ class BongoCatSettingsGUI:
                 except Exception as e:
                     print(f"⚠️ Failed to apply settings to Arduino: {e}")
             
-            self.changes_made = False
-            self.update_preview()
-            messagebox.showinfo("Success", "Settings applied successfully and sent to Arduino!")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to apply settings: {e}")
-    
-    def save_settings(self):
-        """Save current settings to file and Arduino"""
-        self.apply_settings()
-        
-        if self.config:
-            if self.config.save_config():
-                # Also save to Arduino EEPROM if engine is available
-                if self.engine and hasattr(self.engine, 'save_config_to_arduino'):
+            # Save to Arduino EEPROM if engine is available
+            arduino_saved = False
+            if self.engine and hasattr(self.engine, 'save_config_to_arduino'):
+                try:
                     self.engine.save_config_to_arduino()
-                    messagebox.showinfo("Success", "Settings saved to file and Arduino EEPROM!")
-                else:
-                    messagebox.showinfo("Success", "Settings saved to file!")
+                    arduino_saved = True
+                    print("💾 Settings saved to Arduino EEPROM!")
+                except Exception as e:
+                    print(f"⚠️ Failed to save settings to Arduino EEPROM: {e}")
+            
+            # Save to file (both Apply and Save do this)
+            file_saved = False
+            if self.config.save_config():
+                file_saved = True
+                print("💾 Settings saved to file!")
             else:
                 messagebox.showerror("Error", "Failed to save settings to file")
+                return
+            
+            # Show success message and handle window closing
+            if file_saved and arduino_saved:
+                success_message = "Settings saved successfully to file and Arduino!"
+            elif file_saved:
+                success_message = "Settings saved successfully to file!"
+            else:
+                success_message = "Settings applied successfully!"
+            
+         
+            messagebox.showinfo("Success", success_message)
+         
+            print(f"✅ {success_message}")
+            
+            self.changes_made = False
+            self.update_preview()
+            
+            # Close window if requested
+            if close_window:
+                self.close_window()
+                       
+
+            self.original_config = {
+                'display': self.config.get_display_settings().copy(),
+                'behavior': self.config.get_behavior_settings().copy(),
+                'connection': self.config.get_connection_settings().copy(),
+                'startup': self.config.get_startup_settings().copy()
+            }
+        except Exception as e:
+            error_msg = f"Failed to {'save' if close_window else 'apply'} settings: {e}"
+            messagebox.showerror("Error", error_msg)
+
     
     def cancel_settings(self):
         """Cancel changes and revert to original settings"""
@@ -501,8 +567,10 @@ class BongoCatSettingsGUI:
                 self.load_current_settings()
                 self.changes_made = False
                 self.update_preview()
+                self.close_window()
         else:
             self.close_window()
+       
     
     def reset_to_defaults(self):
         """Reset all settings to defaults"""

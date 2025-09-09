@@ -7,18 +7,20 @@ Fixed threading model - Engine ALWAYS runs on main thread for proper keyboard ti
 import sys
 import signal
 import argparse
-import threading
 import time
+import os
+import pyuac
 from config import ConfigManager
 from engine import BongoCatEngine
 from tray import BongoCatSystemTray
+from version import VERSION
+
 
 class BongoCatApplication:
     """Main Bongo Cat application with FIXED thread-safe GUI"""
     
-    def __init__(self, start_minimized=False):
+    def __init__(self):
         """Initialize the application"""
-        self.start_minimized = start_minimized
         self.config = None
         self.engine = None
         self.tray = None
@@ -39,7 +41,7 @@ class BongoCatApplication:
         try:
             # Initialize configuration manager
             print("📂 Loading configuration...")
-            self.config = ConfigManager()
+            self.config = ConfigManager()        
             
             # Initialize engine with configuration
             print("🔧 Initializing Bongo Cat Engine...")
@@ -50,7 +52,8 @@ class BongoCatApplication:
             self.tray = BongoCatSystemTray(
                 config_manager=self.config,
                 engine=self.engine,
-                on_exit_callback=self.shutdown
+                on_exit_callback=self.shutdown,
+                app_instance=self
             )
             
             # Connect engine to tray for status updates
@@ -66,8 +69,8 @@ class BongoCatApplication:
             return False
     
     def run(self):
-        """Run the main application with FIXED threading model"""
-        print("🐱 Bongo Cat Application v2.1 - FIXED THREADING")
+        """Run the main application"""
+        print(f"🐱 Bongo Cat Application v{VERSION}")
         print("=" * 60)
         
         # Initialize components
@@ -84,16 +87,12 @@ class BongoCatApplication:
             # Update initial connection status
             print("🔄 Checking initial connection status...")
             
-            if self.start_minimized:
-                print("🔕 Running in background mode...")
-                print("📱 Look for the cat icon in your system tray")
-                print("🖱️ Right-click the tray icon for options")
-                print("⌨️ Keyboard monitoring active on main thread")
-            else:
-                print("🖥️ Running in normal mode...")
-                print("📝 Start typing to see your cat react!")
-                print("🔄 System tray available in background")
-                print("🛑 Press Ctrl+C to stop")
+            
+            print("🔕 Running in background mode...")
+            print("📱 Look for the cat icon in your system tray")
+            print("🖱️ Right-click the tray icon for options")
+            print("⌨️ Keyboard monitoring active on main thread")
+
             
             print("✅ System tray started with run_detached()")
             print("💡 Settings window available from tray menu")
@@ -123,39 +122,59 @@ class BongoCatApplication:
         
         # Stop engine first
         if self.engine:
-            self.engine.stop_monitoring()
+            try:
+                self.engine.stop_monitoring()
+            except Exception as e:
+                print(f"⚠️ Engine shutdown error: {e}")
         
         # Stop system tray
         if self.tray:
-            self.tray.stop()
+            try:
+                self.tray.stop()
+            except Exception as e:
+                print(f"⚠️ Tray shutdown error: {e}")
         
         # Clean up tkinter root if it exists
         if hasattr(self, 'tk_root') and self.tk_root:
             try:
+                self.tk_root.quit()
                 self.tk_root.destroy()
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Tkinter cleanup error: {e}")
         
         print("👋 Goodbye!")
-        sys.exit(0)
+        
+        # Force terminate any remaining threads and exit
+        try:
+            # Give threads a moment to clean up
+            time.sleep(0.5)
+            
+            # Force exit - this will terminate all threads
+            print("🔄 Force exiting application...")
+            os._exit(0)
+        except Exception as e:
+            print(f"⚠️ Force exit error: {e}")
+            # Last resort - use system exit
+            sys.exit(1)
+            
 
 def main():
     """Main application entry point"""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Bongo Cat Typing Monitor")
-    parser.add_argument("--minimized", action="store_true", 
-                       help="Start minimized to system tray")
-    parser.add_argument("--startup", action="store_true",
-                       help="Started automatically with Windows")
+    parser.add_argument("--version", action="version", 
+                       version=f"Bongo Cat Typing Monitor v{VERSION}")
     
     args = parser.parse_args()
-    
-    # Determine start mode
-    start_minimized = args.minimized or args.startup
+
     
     # Create and run application
-    app = BongoCatApplication(start_minimized=start_minimized)
+    app = BongoCatApplication()
     return app.run()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if not pyuac.isUserAdmin():
+         print("Re-launching as admin!")
+         pyuac.runAsAdmin(wait=False)
+    else:     
+        sys.exit(main())

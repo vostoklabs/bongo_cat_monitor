@@ -9,6 +9,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Dict, Any, Callable, List
+from version import CONFIG_VERSION
 
 class ConfigManager:
     """Manages application configuration with JSON persistence and validation"""
@@ -27,11 +28,13 @@ class ConfigManager:
         
         # Default configuration
         self.default_config = {
-            "version": "1.0",
+            "version": CONFIG_VERSION,
             "display": {
                 "show_cpu": True,
                 "show_ram": True,
                 "show_wpm": True,
+                "show_cpu_temp": True,
+                "show_gpu_temp": True,
                 "show_time": True,
                 "time_format_24h": True
             },
@@ -47,7 +50,6 @@ class ConfigManager:
             },
             "startup": {
                 "start_with_windows": True,
-                "start_minimized": True,
                 "show_notifications": True
             }
         }

@@ -40,6 +40,7 @@ Required packages:
 - `pynput` - Keyboard input detection  
 - `pyserial` - Serial communication
 - `tkinter` - GUI (usually included with Python)
+- `HardwareMonitor` - Hardware Monitor for CPU/GPU Temp
 
 ### Running from Source
 ```bash
@@ -50,7 +51,7 @@ python main.py
 ### Building Executable
 The project includes PyInstaller configuration for creating a standalone executable:
 ```bash
-pyinstaller --onefile --windowed --icon=icon.ico main.py
+pyinstaller --clean bongo_cat.spec
 ```
 
 ## ⚙️ Configuration
@@ -63,6 +64,8 @@ Settings are stored in `config.json` and include:
   "display": {
     "show_cpu": true,
     "show_ram": true, 
+    "show_cpu_temp": true,
+    "show_gpu_temp": true,
     "show_wpm": true,
     "show_time": true
   }
@@ -98,6 +101,9 @@ The app sends commands to ESP32 via serial at 115200 baud:
 | Command | Format | Description |
 |---------|--------|-------------|
 | CPU | `CPU:XX` | CPU usage percentage (0-100) |
+| RAM | `RAM:XX` | RAM usage percentage (0-100) |
+| CPU Temp | `CPUTemp:XX` | CPU Temperature |
+| GPU Temp | `GPUTemp:XX` | GPU Temperature |
 | RAM | `RAM:XX` | RAM usage percentage (0-100) |
 | WPM | `WPM:XX` | Words per minute (0-999) |
 | TIME | `TIME:HH:MM` | Current time in 24h format |
