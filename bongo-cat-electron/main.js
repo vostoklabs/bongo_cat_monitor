@@ -53,10 +53,12 @@ function createWindow() {
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    
-    // Open DevTools in development
+    // Start minimized - don't show window on startup
+    // User can open from tray icon
+
+    // Open DevTools in development (only if showing window)
     if (isDev) {
+      mainWindow.show();
       mainWindow.webContents.openDevTools();
     }
   });
@@ -322,10 +324,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Handle app quit
-app.on('before-quit', () => {
-  isQuitting = true;
-});
+// Handle app quit - cleanup will be done in the handler below
 
 // Security: Prevent new window creation
 app.on('web-contents-created', (event, contents) => {
@@ -611,26 +610,44 @@ ipcMain.handle('reset-settings', async () => {
 
 
 // Cleanup on app quit
-app.on('before-quit', async () => {
+let isCleaningUp = false;
+
+app.on('before-quit', async (event) => {
+  if (isCleaningUp) {
+    // Cleanup already in progress or complete, allow quit
+    return;
+  }
+
+  // Prevent quit until cleanup is complete
+  event.preventDefault();
   isQuitting = true;
-  
+  isCleaningUp = true;
+
   try {
+    console.log('Starting app cleanup...');
+
     // Stop all monitoring
     if (systemMonitor && systemMonitor.isActive()) {
       systemMonitor.stopMonitoring();
+      console.log('System monitoring stopped');
     }
-    
+
     if (keyboardMonitor && keyboardMonitor.isActive()) {
       await keyboardMonitor.stopMonitoring();
+      console.log('Keyboard monitoring stopped');
     }
-    
+
     // Disconnect ESP32
     if (esp32SerialManager && esp32SerialManager.getConnectionStatus().isConnected) {
       await esp32SerialManager.disconnect();
+      console.log('ESP32 disconnected');
     }
-    
-    console.log('App cleanup completed');
+
+    console.log('App cleanup completed successfully');
   } catch (error) {
     console.error('Error during app cleanup:', error);
+  } finally {
+    // Allow quit after cleanup
+    app.quit();
   }
 });
