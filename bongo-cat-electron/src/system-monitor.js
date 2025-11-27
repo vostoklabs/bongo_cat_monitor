@@ -99,7 +99,22 @@ class SystemMonitor {
 
             // Get memory usage
             const memoryInfo = await si.mem();
-            const memoryUsage = ((memoryInfo.used / memoryInfo.total) * 100) || 0;
+
+            // Calculate memory usage correctly based on platform
+            // On macOS, "used" includes cached files that can be freed, so we use "active" or (total - available)
+            // On other platforms, we use the standard calculation
+            let memoryUsage;
+
+            if (process.platform === 'darwin' && memoryInfo.active !== undefined) {
+                // macOS: Use active memory (memory actively used by apps)
+                memoryUsage = ((memoryInfo.active / memoryInfo.total) * 100) || 0;
+            } else if (memoryInfo.available !== undefined) {
+                // Alternative: Use (total - available) / total
+                memoryUsage = (((memoryInfo.total - memoryInfo.available) / memoryInfo.total) * 100) || 0;
+            } else {
+                // Fallback: Use standard used / total calculation
+                memoryUsage = ((memoryInfo.used / memoryInfo.total) * 100) || 0;
+            }
 
             // Smooth CPU readings to reduce fluctuation
             this.cpuLoadArray.push(cpuUsage);
@@ -248,10 +263,14 @@ class SystemMonitor {
                     }))
                 },
                 memory: {
-                    usagePercent: (memory.used / memory.total) * 100,
+                    usagePercent: process.platform === 'darwin' && memory.active !== undefined
+                        ? (memory.active / memory.total) * 100
+                        : memory.available !== undefined
+                            ? ((memory.total - memory.available) / memory.total) * 100
+                            : (memory.used / memory.total) * 100,
                     totalGB: Math.round(memory.total / (1024 * 1024 * 1024) * 10) / 10,
-                    usedGB: Math.round(memory.used / (1024 * 1024 * 1024) * 10) / 10,
-                    freeGB: Math.round(memory.free / (1024 * 1024 * 1024) * 10) / 10
+                    usedGB: Math.round((process.platform === 'darwin' ? memory.active : memory.used) / (1024 * 1024 * 1024) * 10) / 10,
+                    freeGB: Math.round((memory.available || memory.free) / (1024 * 1024 * 1024) * 10) / 10
                 },
                 processes: {
                     running: processes.running,

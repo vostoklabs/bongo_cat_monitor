@@ -288,7 +288,7 @@ class ESP32SerialManager {
             const cpu = Math.round(systemStats.cpu || 0);
             const ram = Math.round(systemStats.memory || 0);
             const wpm = Math.round(typingStats.wpm || 0);
-            
+
             // Use original engine.py format: STATS:CPU:X,RAM:Y,WPM:Z
             const statsCommand = `STATS:CPU:${cpu},RAM:${ram},WPM:${wpm}`;
             await this.sendCommand(statsCommand);

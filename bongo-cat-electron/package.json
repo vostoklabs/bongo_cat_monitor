@@ -28,7 +28,7 @@
   "dependencies": {
     "electron-store": "^8.1.0",
     "keypress": "^0.2.1",
-    "node-global-key-listener": "^0.3.0",
+    "uiohook-napi": "^1.5.4",
     "serialport": "^12.0.0",
     "systeminformation": "^5.21.22"
   },

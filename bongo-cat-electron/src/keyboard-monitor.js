@@ -1,5 +1,6 @@
-// Using node-global-key-listener for global keyboard monitoring
-const { GlobalKeyboardListener } = require('node-global-key-listener');
+// Using uiohook-napi for global keyboard monitoring
+const { uIOhook, UiohookKey } = require('uiohook-napi');
+const { execSync } = require('child_process');
 
 /**
  * Keyboard Monitor for WPM Calculation
@@ -8,7 +9,6 @@ const { GlobalKeyboardListener } = require('node-global-key-listener');
 class KeyboardMonitor {
     constructor(eventEmitter) {
         this.eventEmitter = eventEmitter;
-        this.keyboardListener = null;
         this.isMonitoring = false;
         
         // WPM calculation data - FAST RESPONSE LIKE PYTHON APP
@@ -39,6 +39,34 @@ class KeyboardMonitor {
     }
 
     /**
+     * Check if we have accessibility permissions on macOS
+     */
+    checkAccessibilityPermissions() {
+        if (process.platform !== 'darwin') {
+            return true; // Not macOS, assume we have permissions
+        }
+
+        try {
+            // On macOS, try to check if Electron has accessibility permissions
+            // This uses a native check that won't crash
+            const { systemPreferences } = require('electron');
+
+            if (systemPreferences && typeof systemPreferences.isTrustedAccessibilityClient === 'function') {
+                const isTrusted = systemPreferences.isTrustedAccessibilityClient(false);
+                console.log('🔍 Accessibility permissions check:', isTrusted ? 'GRANTED ✅' : 'DENIED ❌');
+                return isTrusted;
+            }
+
+            // Fallback: assume no permissions if we can't check
+            console.log('⚠️  Unable to check accessibility permissions');
+            return false;
+        } catch (error) {
+            console.log('⚠️  Error checking accessibility permissions:', error.message);
+            return false;
+        }
+    }
+
+    /**
      * Start keyboard monitoring
      */
     async startMonitoring() {
@@ -49,26 +77,63 @@ class KeyboardMonitor {
             }
 
             console.log('Starting keyboard monitoring...');
-            console.log('⚠️ Note: Keyboard monitoring may require elevated permissions on Windows');
+            console.log('⚠️ Note: Keyboard monitoring requires accessibility permissions on macOS');
+            console.log('💡 If prompted, grant accessibility permissions in System Settings > Privacy & Security > Accessibility');
 
-            // Use global keyboard listener for real keystroke detection
-    
-            
+            // Check for accessibility permissions on macOS
+            if (!this.checkAccessibilityPermissions()) {
+                console.error('❌ Accessibility permissions not granted!');
+                console.error('');
+                console.error('📋 To grant permissions on macOS:');
+                console.error('   1. Open System Settings');
+                console.error('   2. Go to Privacy & Security > Accessibility');
+                console.error('   3. Click the lock to make changes');
+                console.error('   4. Add Electron (or this app) to the allowed list');
+                console.error('   5. Restart this app');
+                console.error('');
+
+                this.handlePermissionError(new Error('Accessibility permissions required'));
+
+                return {
+                    success: false,
+                    error: 'Accessibility permissions not granted',
+                    needsPermissions: true,
+                    fallbackMode: true
+                };
+            }
+
             try {
-                // Initialize the global keyboard listener
-                this.keyboardListener = new GlobalKeyboardListener();
-                
-                // Add event listener for key down events
-                this.keyboardListener.addListener((event, name) => {
-                    if (event.state === 'DOWN') {
-                        this.handleKeyPress({ name });
-                    }
+                // Set up keyboard event listener
+                let eventCount = 0;
+                uIOhook.on('keydown', (event) => {
+                    eventCount++;
+                    console.log(`🔍 [${eventCount}] Keydown event:`, JSON.stringify(event));
+                    this.handleKeyPress(event);
                 });
-                
 
-                
+                // Add error handler for the hook
+                uIOhook.on('error', (error) => {
+                    console.error('❌ uIOhook error:', error);
+                    this.handlePermissionError(error);
+                });
+
+                // Start the hook - this may fail if we don't have accessibility permissions
+                console.log('🔍 Attempting to start uIOhook...');
+                uIOhook.start();
+                console.log('✅ uIOhook.start() called successfully');
+                console.log('👀 Waiting for keypress events... (try typing now)');
+
             } catch (error) {
+                console.error('Failed to start uIOhook:', error);
                 this.handlePermissionError(error);
+
+                // Enable fallback mode but don't throw - allow app to continue
+                this.isMonitoring = false;
+                return {
+                    success: false,
+                    error: 'Accessibility permissions required',
+                    fallbackMode: true
+                };
             }
 
             // Set up key event handlers
@@ -109,16 +174,17 @@ class KeyboardMonitor {
             console.log('Stopping keyboard monitoring...');
 
             // Stop global keyboard listener
-            if (this.keyboardListener && this.keyboardListener.kill) {
-                this.keyboardListener.kill();
-                this.keyboardListener = null;
+            try {
+                uIOhook.stop();
+            } catch (error) {
+                console.warn('Error stopping uIOhook:', error);
             }
 
-        // Stop WPM timer
-        if (this.wpmTimer) {
-            clearInterval(this.wpmTimer);
-            this.wpmTimer = null;
-        }
+            // Stop WPM timer
+            if (this.wpmTimer) {
+                clearInterval(this.wpmTimer);
+                this.wpmTimer = null;
+            }
         
 
 
@@ -198,16 +264,20 @@ class KeyboardMonitor {
     handleKeyPress(keyEvent) {
         try {
             const now = Date.now();
-            
+            console.log('🔍 handleKeyPress called with event:', keyEvent);
 
-            
             // Filter out non-typing keys (modifiers, function keys, etc.)
             const typingKeyResult = this.getTypingKey(keyEvent);
+            console.log('🔍 getTypingKey returned:', typingKeyResult);
+
             if (!typingKeyResult) {
+                console.log('⏭️  Key filtered out (not a typing key)');
                 return;
             }
 
-            // Record keystroke with the actual key name
+            console.log('✅ Valid typing key! Adding to keystroke buffer');
+
+            // Record keystroke with the actual key name or keycode
             this.keystrokes.push({
                 timestamp: now,
                 key: typingKeyResult
@@ -244,60 +314,20 @@ class KeyboardMonitor {
      * Get the typing key name if it's a valid typing key, otherwise return null
      */
     getTypingKey(keyEvent) {
-        // Handle case where keyEvent might be an object without a name property
+        // Handle case where keyEvent might be missing
         if (!keyEvent || typeof keyEvent !== 'object') {
+            return false;
+        }
 
-            return false;
-        }
-        
-        const nameObj = keyEvent.name;
-        
-        // Handle different name formats
-        let key = null;
-        
-        if (typeof nameObj === 'string') {
-            // Old format - simple string
-            key = nameObj;
-        } else if (typeof nameObj === 'object' && nameObj !== null) {
-            // New format - object with key states
-            // Find the key that is currently pressed (true value)
-            const pressedKeys = Object.entries(nameObj)
-                .filter(([keyName, isPressed]) => isPressed === true)
-                .map(([keyName]) => keyName);
-            
-            if (pressedKeys.length === 1) {
-                key = pressedKeys[0];
-            } else if (pressedKeys.length > 1) {
-                // Multiple keys pressed - could be valid (like Shift+A)
-                // For typing detection, we'll focus on the non-modifier key
-                const nonModifierKeys = pressedKeys.filter(k => !this.isModifierKey(k));
-                if (nonModifierKeys.length === 1) {
-                    key = nonModifierKeys[0];
-                } else {
-                    // Multiple non-modifier keys or complex combination - skip
-                    return false;
-                }
-            } else {
-                // No keys pressed (all false) - likely a release event
-                return false;
-            }
-        } else {
+        const keycode = keyEvent.keycode;
 
-            return false;
-        }
-        
-        // If no valid key found
-        if (!key || typeof key !== 'string') {
-            return false;
-        }
-        
-        const isTyping = this.isValidTypingKey(key);
-        
-        if (!isTyping) {
+        // Check if this is a valid typing key based on keycode
+        if (!this.isValidTypingKeycode(keycode)) {
             return null;
-        } else {
-            return key;
         }
+
+        // Return the keycode as the key identifier
+        return keycode;
     }
 
     /**
@@ -308,63 +338,87 @@ class KeyboardMonitor {
     }
 
     /**
-     * Helper method to check if a key is a modifier key
+     * Check if a keycode is a valid typing key
+     * Based on uiohook-napi keycodes
      */
-    isModifierKey(key) {
-        const modifierKeys = [
-            'LEFT CTRL', 'RIGHT CTRL', 'LEFT ALT', 'RIGHT ALT',
-            'LEFT SHIFT', 'RIGHT SHIFT', 'LEFT META', 'RIGHT META',
-            'CTRL', 'ALT', 'SHIFT', 'META', 'CMD', 'COMMAND'
-        ];
-        return modifierKeys.includes(key);
-    }
-
-    /**
-     * Check if a key is a valid typing key
-     */
-    isValidTypingKey(key) {
-        // Exclude modifier keys
-        const modifierKeys = [
-            'LEFT CTRL', 'RIGHT CTRL', 'LEFT ALT', 'RIGHT ALT',
-            'LEFT SHIFT', 'RIGHT SHIFT', 'LEFT META', 'RIGHT META',
-            'CAPS LOCK', 'TAB', 'ESC', 'INSERT', 'DELETE',
-            'HOME', 'END', 'PAGE UP', 'PAGE DOWN',
-            'CTRL', 'ALT', 'SHIFT', 'META', 'CMD', 'COMMAND'
-        ];
-
-        // Exclude function keys
-        const functionKeys = [
-            'F1', 'F2', 'F3', 'F4', 'F5', 'F6',
-            'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
-        ];
-
-        // Exclude arrow keys
-        const arrowKeys = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
-        
-        // EXCLUDE MOUSE CLICKS - Enhanced detection
-        const mouseKeys = [
-            'MOUSE LEFT', 'MOUSE RIGHT', 'MOUSE MIDDLE',
-            'MOUSE 4', 'MOUSE 5', 'MOUSE WHEEL UP', 'MOUSE WHEEL DOWN',
-            'LEFT MOUSE', 'RIGHT MOUSE', 'MIDDLE MOUSE',
-            'MOUSE_LEFT', 'MOUSE_RIGHT', 'MOUSE_MIDDLE',
-            'LEFT BUTTON', 'RIGHT BUTTON', 'MIDDLE BUTTON',
-            'BUTTON 1', 'BUTTON 2', 'BUTTON 3', 'BUTTON 4', 'BUTTON 5'
-        ];
-
-        // Check if key should be excluded
-        const isModifier = modifierKeys.includes(key);
-        const isFunction = functionKeys.includes(key);
-        const isArrow = arrowKeys.includes(key);
-        const isMouse = mouseKeys.includes(key) || 
-                       (key.includes('MOUSE') || key.includes('BUTTON') || 
-                        key.includes('CLICK') || key.includes('SCROLL'));
-
-        // Additional safety check for numeric keys that might be mouse buttons
-        if (/^[0-9]+$/.test(key)) {
+    isValidTypingKeycode(keycode) {
+        if (typeof keycode !== 'number') {
             return false;
         }
 
-        return !isModifier && !isFunction && !isArrow && !isMouse;
+        // Modifier keys - exclude these
+        const modifierKeycodes = [
+            29,    // Ctrl
+            3613,  // CtrlRight
+            56,    // Alt
+            3640,  // AltRight
+            42,    // Shift
+            54,    // ShiftRight
+            3675,  // Meta (Cmd)
+            3676   // MetaRight
+        ];
+
+        // Function keys F1-F24 - exclude these
+        const functionKeycodes = [
+            59, 60, 61, 62, 63, 64, 65, 66, 67, 68, // F1-F10
+            87, 88, // F11-F12
+            91, 92, 93, 99, 100, 101, 102, 103, 104, 105, 106, 107 // F13-F24
+        ];
+
+        // Arrow keys - exclude these
+        const arrowKeycodes = [57419, 57416, 57421, 57424]; // Left, Up, Right, Down
+
+        // Special keys to exclude
+        const specialKeycodes = [
+            1,     // Escape
+            58,    // CapsLock
+            3657,  // PageUp
+            3665,  // PageDown
+            3663,  // End
+            3655,  // Home
+            3666,  // Insert
+            3667,  // Delete
+            69,    // NumLock
+            70     // ScrollLock
+        ];
+
+        // Check if keycode should be excluded
+        if (modifierKeycodes.includes(keycode) ||
+            functionKeycodes.includes(keycode) ||
+            arrowKeycodes.includes(keycode) ||
+            specialKeycodes.includes(keycode)) {
+            return false;
+        }
+
+        // Valid typing keys based on uiohook-napi mappings:
+        // Numbers: 2-11 (1-0)
+        // Letters Q-P: 16-25
+        // Letters A-L: 30-38
+        // Letters Z-M: 44-50
+        // Punctuation and special chars: 12, 13, 26, 27, 39, 40, 41, 43, 51, 52, 53
+        // Space: 57
+        // Enter: 28
+        // Backspace: 14
+        // Tab: 15
+        // Numpad: 71-83, 55, 74, 78
+
+        const typingKeycodes = [
+            // Number row (top of keyboard): 1-0, -, =
+            2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+            // Tab and Backspace
+            14, 15,
+            // QWERTY rows
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, // Q-P, [, ], Enter
+            30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, // A-L, ;, '
+            41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, // `, \, Z-M, ,, ., /
+            // Space
+            57,
+            // Numpad
+            71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, // 7-9, -, 4-6, +, 1-3, 0, .
+            55 // NumpadMultiply
+        ];
+
+        return typingKeycodes.includes(keycode);
     }
 
     /**
@@ -646,8 +700,6 @@ class KeyboardMonitor {
     getStatus() {
         return {
             isMonitoring: this.isMonitoring,
-            hasListener: this.keyboardListener !== null,
-            isGlobalListener: this.keyboardListener && this.keyboardListener.kill !== undefined,
             fallbackMode: this.fallbackMode,
             sessionActive: this.currentSession.startTime !== null,
             currentWPM: this.currentSession.currentWPM,

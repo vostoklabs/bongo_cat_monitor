@@ -205,23 +205,84 @@ function setupEventForwarding() {
   // Auto-start monitoring when app is ready
   setTimeout(async () => {
     try {
+      // Auto-connect to serial device
+      console.log('🔌 Checking for ESP32 serial device...');
+      if (esp32SerialManager && settingsManager) {
+        try {
+          const ports = await esp32SerialManager.getAvailablePorts();
+          const lastUsedPort = settingsManager.getLastUsedPort();
+
+          // Try to find a /dev/tty.usbserial* port
+          let targetPort = null;
+
+          // First, try the last used port if it matches the pattern
+          if (lastUsedPort && lastUsedPort.includes('/dev/tty.usbserial')) {
+            const portExists = ports.find(p => p.path === lastUsedPort);
+            if (portExists) {
+              targetPort = lastUsedPort;
+              console.log(`✅ Found last used port: ${lastUsedPort}`);
+            } else {
+              console.log(`⚠️  Last used port ${lastUsedPort} not available`);
+            }
+          }
+
+          // If last used port not available, find first /dev/tty.usbserial* port
+          if (!targetPort) {
+            const usbSerialPort = ports.find(p => p.path && p.path.includes('/dev/tty.usbserial'));
+            if (usbSerialPort) {
+              targetPort = usbSerialPort.path;
+              console.log(`✅ Found USB serial port: ${targetPort}`);
+            }
+          }
+
+          // Connect to the port if found
+          if (targetPort) {
+            console.log(`🔌 Auto-connecting to ${targetPort}...`);
+            const esp32Settings = settingsManager.getESP32Settings();
+            const result = await esp32SerialManager.connectToDevice(targetPort, esp32Settings);
+
+            if (result.success) {
+              console.log(`✅ Successfully connected to ${targetPort}`);
+              settingsManager.saveLastUsedPort(targetPort);
+            } else {
+              console.log(`⚠️  Failed to connect to ${targetPort}`);
+            }
+          } else {
+            console.log('ℹ️  No USB serial device found (this is normal if device is not connected)');
+          }
+        } catch (error) {
+          console.error('❌ Auto-connect failed:', error.message);
+          console.log('💡 You can manually connect from the app UI');
+        }
+      }
+
       console.log('🚀 Auto-starting system monitoring...');
       if (systemMonitor) {
         await systemMonitor.startMonitoring(2000); // 2-second intervals
         console.log('✅ System monitoring started automatically');
       }
-      
+
+      // Auto-start keyboard monitoring
       console.log('🚀 Auto-starting keyboard monitoring...');
       if (keyboardMonitor) {
-        await keyboardMonitor.startMonitoring();
-        console.log('✅ Keyboard monitoring started automatically');
-        console.log('🧪 Type something now to test if keyboard monitoring works...');
-        console.log('💡 If no keys are detected, check permissions or run as administrator');
+        try {
+          const result = await keyboardMonitor.startMonitoring();
+          if (result.success) {
+            console.log('✅ Keyboard monitoring started automatically');
+            console.log('🧪 Type something now to test if keyboard monitoring works...');
+          } else {
+            console.log('⚠️ Keyboard monitoring failed to start (likely permission issue)');
+            console.log('💡 On macOS: Grant accessibility permissions in System Settings > Privacy & Security > Accessibility');
+          }
+        } catch (error) {
+          console.error('❌ Keyboard monitoring auto-start failed:', error.message);
+          console.log('💡 You can manually start it from the app UI after granting permissions');
+        }
       }
-      
+
       // Auto-start as monitoring state
       monitoringActive = true;
-      
+
     } catch (error) {
       console.error('Failed to auto-start monitoring:', error);
     }
