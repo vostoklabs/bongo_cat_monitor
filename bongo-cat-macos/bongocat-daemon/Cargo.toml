@@ -1,0 +1,19 @@
+[package]
+name = "bongocat-daemon"
+version = "0.1.0"
+edition = "2021"
+description = "Native macOS daemon for Bongo Cat Monitor"
+authors = ["Bongo Cat Monitor Contributors"]
+
+[dependencies]
+serialport = "4.3"
+sysinfo = "0.30"
+rdev = "0.5"
+chrono = "0.4"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

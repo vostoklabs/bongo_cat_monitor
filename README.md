@@ -16,13 +16,20 @@ Bongo Cat is a cute digital pet that lives on your desk and types along with you
 - **Open Source** - Complete source code available
 - **Easy Assembly** - No soldering required, around $10 to build
 
-## 🎉 **NEW: Mac Support Available!** 
+## 🎉 **NEW: Mac Support Available!**
 
-🍎 **Mac users can now enjoy Bongo Cat!** We've added full macOS support with:
-- **Native Mac app** - Download and install like any other Mac application
+🍎 **Mac users can now enjoy Bongo Cat!** Choose your preferred option:
+
+### Option A: Native macOS App (Recommended)
+- **Lightweight** - Under 1MB total, ~13MB RAM usage
+- **Fast** - Built with Rust and Swift for native performance
+- **Simple** - Single `make` command to build
+
+📖 **[Native Mac Guide](bongo-cat-macos/README.md)**
+
+### Option B: Electron App
+- **Cross-platform** - Same codebase for Mac and Windows
 - **Universal binary** - Works on both Intel and Apple Silicon Macs
-- **Easy installation** - Simple drag-and-drop setup with step-by-step guide
-- **Proper permissions** - Seamless integration with macOS security
 
 📥 **[Download for Mac](https://github.com/vostoklabs/bongo_cat_monitor/releases)** | 📖 **[Mac Installation Guide](bongo-cat-electron/MAC_USER_GUIDE.md)**
 
@@ -54,7 +61,13 @@ This board includes:
 
 ### Desktop Application Setup
 
-#### 🍎 For Mac Users
+#### 🍎 For Mac Users (Native App - Recommended)
+1. **Clone** the repository and navigate to `bongo-cat-macos/`
+2. **Build** with `make` (requires Rust and Xcode Command Line Tools)
+3. **Run** with `make run` or open `build/BongoCat.app`
+4. **Grant** Accessibility permission when prompted
+
+#### 🍎 For Mac Users (Electron App)
 1. **Download** the Mac DMG file from [GitHub Releases](https://github.com/vostoklabs/bongo_cat_monitor/releases)
 2. **Follow** our detailed [Mac Installation Guide](bongo-cat-electron/MAC_USER_GUIDE.md)
 3. **Enjoy** your Bongo Cat with native Mac integration!
@@ -85,7 +98,12 @@ This board includes:
 │   ├── 📄 tray.py             # System tray functionality
 │   ├── 📄 config.py           # Configuration management
 │   └── 📄 requirements_app.txt
-├── 📁 bongo-cat-electron/     # 🆕 Cross-platform Electron app (Mac & Windows)
+├── 📁 bongo-cat-macos/        # 🆕 Native macOS app (Rust + Swift)
+│   ├── 📁 bongocat-daemon/    # Rust daemon (keyboard, serial, WPM)
+│   ├── 📁 BongoCatApp/        # Swift menu bar UI
+│   ├── 📄 Makefile            # Build system
+│   └── 📄 README.md           # Build instructions
+├── 📁 bongo-cat-electron/     # Cross-platform Electron app (Mac & Windows)
 │   ├── 📄 main.js             # Main Electron process
 │   ├── 📄 MAC_USER_GUIDE.md   # Step-by-step Mac installation guide
 │   ├── 📁 renderer/           # UI components
