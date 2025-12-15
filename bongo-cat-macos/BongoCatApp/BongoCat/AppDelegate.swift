@@ -12,7 +12,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "cat.fill", accessibilityDescription: "Bongo Cat")
+            // Load custom bongo cat icon from bundle resources
+            if let iconPath = Bundle.main.path(forResource: "tray", ofType: "png"),
+               let icon = NSImage(contentsOfFile: iconPath) {
+                icon.size = NSSize(width: 18, height: 18)
+                icon.isTemplate = false  // Keep original colors (pink cheeks!)
+                button.image = icon
+            } else {
+                // Fallback to SF Symbol if custom icon not found
+                button.image = NSImage(systemSymbolName: "cat.fill", accessibilityDescription: "Bongo Cat")
+            }
         }
 
         // Create menu

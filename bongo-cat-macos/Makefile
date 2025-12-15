@@ -43,12 +43,15 @@ $(SWIFT_BINARY): $(SWIFT_FILES)
 		-o $(SWIFT_BINARY)
 	@cp $(SWIFT_SRC)/BongoCat/Info.plist $(SWIFT_APP)/Contents/
 
-# Bundle: copy Rust binary into app bundle
+# Bundle: copy Rust binary and assets into app bundle
 bundle: build-rust build-swift
 	@echo "Creating app bundle..."
 	@mkdir -p "$(BUNDLE_RESOURCES)"
 	cp "$(RUST_BINARY)" "$(BUNDLE_RESOURCES)/bongocat-daemon"
 	chmod +x "$(BUNDLE_RESOURCES)/bongocat-daemon"
+	@echo "Copying icons..."
+	cp "$(SWIFT_SRC)/BongoCat/Assets.xcassets/MenuBarIcon.imageset/tray.png" "$(BUNDLE_RESOURCES)/tray.png"
+	cp "$(SWIFT_SRC)/BongoCat/Assets.xcassets/AppIcon.appiconset/icon_512x512.png" "$(BUNDLE_RESOURCES)/icon.png"
 
 # Code sign the app (ad-hoc for personal use)
 codesign:
