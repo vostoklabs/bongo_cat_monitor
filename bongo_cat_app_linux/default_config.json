@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "display": {
+    "show_cpu": true,
+    "show_ram": true,
+    "show_wpm": true,
+    "show_time": true,
+    "time_format_24h": true
+  },
+  "behavior": {
+    "sleep_timeout_minutes": 1,
+    "animation_sensitivity": 1.0,
+    "idle_timeout_seconds": 1.0
+  },
+  "connection": {
+    "com_port": "/dev/ttyUSB0",
+    "baudrate": 115200,
+    "auto_reconnect": true,
+    "timeout_seconds": 5
+  },
+  "startup": {
+    "start_with_windows": true,
+    "start_minimized": true,
+    "show_notifications": true
+  }
+}
