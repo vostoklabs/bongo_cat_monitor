@@ -13,7 +13,7 @@
     "idle_timeout_seconds": 1.0
   },
   "connection": {
-    "com_port": "/dev/ttyUSB0",
+    "com_port": "AUTO",
     "baudrate": 115200,
     "auto_reconnect": true,
     "timeout_seconds": 5
