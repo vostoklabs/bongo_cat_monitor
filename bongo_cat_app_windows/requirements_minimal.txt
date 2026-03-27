@@ -1,0 +1,23 @@
+# Minimal requirements for Bongo Cat Application
+# Only essential dependencies needed for exe build
+
+# System tray functionality
+pystray>=0.19.0
+
+# Image processing for icons
+Pillow>=9.0.0
+
+# Serial communication with ESP32
+pyserial>=3.5
+
+# Keyboard monitoring
+pynput>=1.7.0
+
+# System monitoring (CPU/RAM)
+psutil>=5.8.0
+
+# PyInstaller for building exe
+pyinstaller>=5.0.0
+
+# GUI framework (included with Python, but listed for clarity)
+# tkinter - comes with Python standard library 
