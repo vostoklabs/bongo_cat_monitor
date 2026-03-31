@@ -2,12 +2,12 @@
 
 ![Bongo Cat](web%20resources/cat1.png)
 
-Bongo Cat is a cute digital pet that lives on your desk and types along with you! This ESP32-based project displays a charming cat that responds to your typing speed, shows system statistics (CPU, RAM, WPM), and features adorable animations that bring joy to your workspace.
+Bongo Cat is a cute digital pet that lives on your desk and types along with you! This ESP32-based project displays a charming cat that responds to your typing speed, shows system statistics (CPU, RAM, CPU temperature, GPU temperature, WPM), and features adorable animations that bring joy to your workspace.
 
 ## ✨ Features
 
 - **Real-time Typing Detection** - Cat types faster when you type faster
-- **System Monitoring** - Displays CPU usage, RAM usage, and current time
+- **System Monitoring** - Displays CPU usage, RAM usage, CPU temperature (requires admin rights), GPU temperature and current time
 - **WPM Tracking** - Shows your words per minute in real-time
 - **Multiple Animations** - Various cute expressions and movements
 - **Sleep Mode** - Cat goes to sleep when you're not active
@@ -184,7 +184,7 @@ The `lv_conf.h` file configures the LVGL graphics library:
 
 ### Creating Installers
 - **Windows**: Use `installer.nsi` with NSIS
-- **Executable**: Use `bongo_cat.spec` with PyInstaller
+- **Executable**: Use `bongo_cat.spec` with PyInstaller. `pyinstaller --clean bongo_cat.spec`
 
 ## 🎯 PC Application Features
 
