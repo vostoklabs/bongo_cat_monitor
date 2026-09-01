@@ -46,6 +46,9 @@
       "assets/**/*",
       "node_modules/**/*"
     ],
+    "asarUnpack": [
+      "node_modules/node-global-key-listener/**/*"
+    ],
     "mac": {
       "category": "public.app-category.utilities",
       "target": [
