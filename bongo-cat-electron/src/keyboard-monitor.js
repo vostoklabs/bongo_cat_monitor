@@ -1,5 +1,57 @@
 // Using node-global-key-listener for global keyboard monitoring
 const { GlobalKeyboardListener } = require('node-global-key-listener');
+const path = require('path');
+const fs = require('fs');
+
+/**
+ * Resolve the real, executable location of MacKeyServer when the app is
+ * running packaged inside an .asar archive.
+ *
+ * node-global-key-listener computes its server path as
+ * path.join(__dirname, '../../bin/MacKeyServer'), and __dirname always
+ * resolves *inside* app.asar - even though electron-builder actually
+ * extracts this binary to app.asar.unpacked (a file can be executed only
+ * from a real path on disk, never from inside the .asar archive itself).
+ * That mismatch is what causes "spawn ENOENT" / permission errors on
+ * packaged macOS builds even though the file exists and is +x.
+ *
+ * We only need this override when packaged; in dev mode (running via
+ * `electron .`) __dirname already points at a real path, so the library's
+ * own default resolution works fine and we return undefined.
+ */
+function resolveMacKeyServerPath() {
+    if (process.platform !== 'darwin') return undefined;
+
+    try {
+        const relative = path.join(
+            'node_modules', 'node-global-key-listener', 'bin', 'MacKeyServer'
+        );
+
+        // Only relevant when running from inside app.asar
+        const isPackaged = __dirname.includes(`${path.sep}app.asar${path.sep}`) ||
+            __dirname.endsWith(`${path.sep}app.asar`);
+        if (!isPackaged || !process.resourcesPath) return undefined;
+
+        const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', relative);
+
+        if (fs.existsSync(unpackedPath)) {
+            // Make sure the executable bit survived packaging/signing/notarizing
+            try {
+                fs.chmodSync(unpackedPath, 0o755);
+            } catch (chmodErr) {
+                console.warn('⚠️ Could not chmod MacKeyServer (non-fatal):', chmodErr.message);
+            }
+            console.log('✅ Resolved unpacked MacKeyServer path:', unpackedPath);
+            return unpackedPath;
+        }
+
+        console.warn('⚠️ Expected unpacked MacKeyServer not found at:', unpackedPath);
+        return undefined;
+    } catch (error) {
+        console.warn('⚠️ Failed to resolve MacKeyServer path, using library default:', error.message);
+        return undefined;
+    }
+}
 
 /**
  * Keyboard Monitor for WPM Calculation
@@ -55,8 +107,16 @@ class KeyboardMonitor {
     
             
             try {
-                // Initialize the global keyboard listener
-                this.keyboardListener = new GlobalKeyboardListener();
+                // Initialize the global keyboard listener.
+                // On macOS, when packaged, explicitly point it at the real
+                // (unpacked) MacKeyServer binary - see resolveMacKeyServerPath()
+                // for why this is necessary.
+                const listenerConfig = {};
+                const macServerPath = resolveMacKeyServerPath();
+                if (macServerPath) {
+                    listenerConfig.mac = { serverPath: macServerPath };
+                }
+                this.keyboardListener = new GlobalKeyboardListener(listenerConfig);
                 
                 // Add event listener for key down events
                 this.keyboardListener.addListener((event, name) => {
