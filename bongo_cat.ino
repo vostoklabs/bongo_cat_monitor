@@ -1,9 +1,12 @@
+#include "User_Setup.h"
 #include <lvgl.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <EEPROM.h>
 #include "Free_Fonts.h"
 #include "animations_sprites.h"
+
+
 
 // Display settings
 #define SCREEN_WIDTH 240
@@ -59,6 +62,24 @@ lv_obj_t * cpu_label = NULL;
 lv_obj_t * ram_label = NULL;
 lv_obj_t * wpm_label = NULL;
 lv_obj_t * time_label = NULL;
+
+// ---- Farben (per Serial aenderbar: BG:RRGGBB / FG:RRGGBB) ----
+uint32_t g_bg_rgb = 0xFFFFFF;   // Hintergrund
+uint32_t g_fg_rgb = 0x000000;   // Text
+
+static void apply_colors() {
+    uint16_t bg565 = tft.color565((g_bg_rgb >> 16) & 0xFF, (g_bg_rgb >> 8) & 0xFF, g_bg_rgb & 0xFF);
+    tft.fillScreen(bg565);
+    lv_color_t fg = lv_color_hex(g_fg_rgb);
+    if (screen) {
+        lv_obj_set_style_bg_color(screen, lv_color_hex(g_bg_rgb), 0);
+    }
+    if (cpu_label)  lv_obj_set_style_text_color(cpu_label,  fg, 0);
+    if (ram_label)  lv_obj_set_style_text_color(ram_label,  fg, 0);
+    if (wpm_label)  lv_obj_set_style_text_color(wpm_label,  fg, 0);
+    if (time_label) lv_obj_set_style_text_color(time_label, fg, 0);
+    lv_obj_invalidate(lv_scr_act());
+}
 
 // Stats data
 int cpu_usage = 0;
@@ -339,6 +360,14 @@ void handleSerialCommands() {
             // Handle WPM display updates
             wpm_speed = command.substring(4).toInt();
             
+        } else if (command.startsWith("BG:")) {
+            g_bg_rgb = strtoul(command.substring(3).c_str(), nullptr, 16);
+            apply_colors();
+            Serial.println("🎨 Hintergrundfarbe gesetzt");
+        } else if (command.startsWith("FG:")) {
+            g_fg_rgb = strtoul(command.substring(3).c_str(), nullptr, 16);
+            apply_colors();
+            Serial.println("🎨 Textfarbe gesetzt");
         } else if (command == "PING") {
             Serial.println("PONG");
             
@@ -788,6 +817,9 @@ const char* get_state_name(animation_state_t state) {
 }
 
 void setup() {
+    // CYD-Backlight: GPIO21 (in User_Setup.h steht 27, das ist bei dieser Variante falsch)
+    pinMode(21, OUTPUT);
+    digitalWrite(21, HIGH);
     Serial.begin(115200);
     Serial.println("🐱 Bongo Cat with Sprites Starting...");
     
@@ -802,7 +834,7 @@ void setup() {
     
     tft.init();
     tft.setRotation(0);
-    tft.fillScreen(TFT_WHITE);  // White background
+    tft.fillScreen(TFT_WHITE);  // wird in apply_colors() gesetzt
     
     lv_init();
     
@@ -831,7 +863,7 @@ void createBongoCat() {
     screen = lv_scr_act();
     
     // Set white background
-    lv_obj_set_style_bg_color(screen, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(g_bg_rgb), 0);
     
     // Create cat canvas with proper sizing
     cat_canvas = lv_canvas_create(screen);
@@ -851,30 +883,31 @@ void createBongoCat() {
     cpu_label = lv_label_create(screen);
     lv_label_set_text(cpu_label, "CPU: 0%");
     lv_obj_set_style_text_font(cpu_label, &lv_font_unscii_16, 0);
-    lv_obj_set_style_text_color(cpu_label, lv_color_black(), 0);
+    lv_obj_set_style_text_color(cpu_label, lv_color_hex(g_fg_rgb), 0);
     lv_obj_align(cpu_label, LV_ALIGN_TOP_LEFT, 5, 5);
     
     ram_label = lv_label_create(screen);
     lv_label_set_text(ram_label, "RAM: 0%");
     lv_obj_set_style_text_font(ram_label, &lv_font_unscii_16, 0);
-    lv_obj_set_style_text_color(ram_label, lv_color_black(), 0);
+    lv_obj_set_style_text_color(ram_label, lv_color_hex(g_fg_rgb), 0);
     lv_obj_align(ram_label, LV_ALIGN_TOP_LEFT, 5, 25);
     
     wpm_label = lv_label_create(screen);
     lv_label_set_text(wpm_label, "WPM: 0");
     lv_obj_set_style_text_font(wpm_label, &lv_font_unscii_16, 0);
-    lv_obj_set_style_text_color(wpm_label, lv_color_black(), 0);
+    lv_obj_set_style_text_color(wpm_label, lv_color_hex(g_fg_rgb), 0);
     lv_obj_align(wpm_label, LV_ALIGN_TOP_LEFT, 5, 45);
     
     // Create time label (top right) - bigger pixelated font
     time_label = lv_label_create(screen);
     lv_label_set_text(time_label, "00:00");
     lv_obj_set_style_text_font(time_label, &lv_font_unscii_16, 0);
-    lv_obj_set_style_text_color(time_label, lv_color_black(), 0);
+    lv_obj_set_style_text_color(time_label, lv_color_hex(g_fg_rgb), 0);
     lv_obj_align(time_label, LV_ALIGN_TOP_RIGHT, -5, 5);
     
     // Initial render
     sprite_render_layers(&sprite_manager, cat_canvas, millis());
+    apply_colors();
 }
 
 void loop() {
