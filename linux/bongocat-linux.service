@@ -1,0 +1,16 @@
+[Unit]
+Description=Bongo Cat Linux companion (CPU/RAM/WPM to the ESP32 display)
+Documentation=https://github.com/vostoklabs/bongo_cat_monitor
+# X11 is needed for the global key capture
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/bongocat-linux/bongocat_linux.py
+Restart=always
+RestartSec=5
+ExecStartPre=/bin/sleep 3
+
+[Install]
+WantedBy=graphical-session.target
